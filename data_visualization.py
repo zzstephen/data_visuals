@@ -2,14 +2,120 @@ import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
 import plotly.express as px
-import textwrap
 import matplotlib.pyplot as plt
-import textwrap
+import plotly.colors as pc
+import numpy as np
+from plotly.colors import sample_colorscale
+from matplotlib.cm import get_cmap
+import plotly.graph_objects as go
+import random
+
+
+full_marker_list = \
+    ["circle", "circle-open", "square", "square-open", "diamond", "diamond-open",
+    "cross", "x", "triangle-up", "triangle-up-open", "triangle-down", "triangle-down-open",
+    "triangle-left", "triangle-left-open", "triangle-right", "triangle-right-open",
+    "pentagon", "pentagon-open", "hexagon", "hexagon-open", "hexagon2", "hexagon2-open",
+    "star", "star-open", "hexagram", "hexagram-open", "star-triangle-up", "star-triangle-up-open",
+    "star-triangle-down", "star-triangle-down-open", "star-square", "star-square-open",
+    "star-diamond", "star-diamond-open", "diamond-tall", "diamond-tall-open",
+    "diamond-wide", "diamond-wide-open", "hourglass", "hourglass-open",
+    "bowtie", "bowtie-open", "asterisk", "hash", "y-up", "y-down", "y-left", "y-right",
+    "line-ew", "line-ns", "line-ne", "line-nw"]
+
+def get_unique_colors(n):
+    """
+    Returns a list of n visually distinct colors suitable for Plotly.
+
+    Parameters:
+    n (int): Number of unique colors required.
+
+    Returns:
+    list: List of n hex color strings.
+    """
+    # Aggregate colors from multiple qualitative color scales
+    base_colors = []
+    qualitative_scales = [
+        pc.qualitative.Plotly,  # 10 colors
+        pc.qualitative.D3,  # 10 colors
+        pc.qualitative.Set1,  # 9 colors
+        pc.qualitative.Set2,  # 8 colors
+        pc.qualitative.Set3  # 12 colors
+    ]
+    for scale in qualitative_scales:
+        base_colors.extend(scale)
+
+    # If n <= available qualitative colors, return first n colors
+    if n <= len(base_colors):
+        return base_colors[:n]
+    else:
+        # Interpolate additional colors from Viridis continuous scale
+        extra_needed = n - len(base_colors)
+        extra_colors = sample_colorscale('Viridis', np.linspace(0, 1, extra_needed))
+        return base_colors + extra_colors
 
 
 class data_visualization:
     def __init__(self, data=None):
         self.data = data
+
+    @staticmethod
+    def scatter_plot_by_category(df, x_col, y_col, category_col, width=900, height=600,
+                                 title="Scatter Plot by Category"):
+        """
+        Create an interactive scatter plot with unique markers and unique colors for each category.
+        """
+
+        # Validate inputs
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("df must be a pandas DataFrame.")
+        for col in [x_col, y_col, category_col]:
+            if col not in df.columns:
+                raise ValueError(f"Column '{col}' not found in DataFrame.")
+
+        # Extract categories
+        categories = df[category_col].unique()
+        n = len(categories)
+
+        all_markers = random.sample(full_marker_list, n)
+
+        # Generate n unique colors using a continuous colormap
+        # (HSV gives a nice spread around the color wheel)
+        colors = get_unique_colors(n)
+
+        fig = go.Figure()
+
+        for idx, category in enumerate(categories):
+            subset = df[df[category_col] == category]
+
+            fig.add_trace(go.Scatter(
+                x=subset[x_col],
+                y=subset[y_col],
+                mode="markers",
+                name=str(category),
+                marker=dict(
+                    symbol=all_markers[idx % len(all_markers)],
+                    color=colors[idx],
+                    size=10,
+                    opacity=0.75,
+                    line=dict(width=1, color="black")
+                )
+            ))
+
+        fig.update_yaxes(
+            dtick=1)
+
+        fig.update_layout(
+            title=title,
+            xaxis_title=x_col,
+            yaxis_title=y_col,
+            legend_title=category_col,
+            template="plotly_white",
+            width=900,
+            height=max(height, n * 100)
+        )
+        return fig
+
 
 
     @staticmethod
